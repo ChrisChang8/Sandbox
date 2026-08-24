@@ -37,8 +37,8 @@ pipeline {
                 sh """
                     docker rm -f demo-app || true
                     docker run -d --name demo-app -p ${APP_PORT}:8080 ${IMAGE_NAME}:${IMAGE_TAG}
-                    sleep 5
-                    curl -sf localhost:${APP_PORT}/hello
+                    APP_IP=\$(docker inspect -f '{{.NetworkSettings.IPAddress}}' demo-app)
+                    curl -sf --retry 10 --retry-delay 2 --retry-connrefused http://\${APP_IP}:8080/hello
                 """
             }
         }
