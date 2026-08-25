@@ -128,5 +128,11 @@ its own container IP rather than `localhost`.
 9. Created Person Entity, locaated in src/main/java/com/example/demo/Person.java
 10. Create the controller — new file (PersonController.java)
 11. Add datasource config — append to ~/main/java/resources/application.properties
-12. Create init.sql — new file at repo root (init.sql):
+12. Create init.sql — new file at repo root (init.sql)
+13. Verify:
+    - Check containers: `docker ps -a`
+    - Check what's available: `docker-compose version`
+    - Build: `docker-compose up -d --build`
+    - Check: curl http://localhost:8081/people
+
 
