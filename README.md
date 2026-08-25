@@ -76,7 +76,7 @@ its own container IP rather than `localhost`.
 ## Multi-Stage Build
 
 1. Build the image and tag it baseline: `docker build -t demo-app:baseline`
-2. List hte image and note its size (8/25 - 317MB): `docker images demo-app`
+2. List the image and note its size (8/25 - 317MB): `docker images demo-app`
 3. Read Dockerfile `COPY --from=build /app/target/demo-app-*.jar app.jar`, this tells Docker "reach into the build stage's filesystem and copy this one file out." Everything else from stage 1 (Maven cache, JDK, .java sources, pom.xml) is discarded — it never becomes part of the final image layers.
 4. Verify discarding: `docker history demo-app:baseline` You should see layers corresponding only to the eclipse-temurin:17-jre base + the COPY app.jar + EXPOSE/ENTRYPOINT metadata — nothing about mvn clean package.
 5. Confirm OS Base image: `docker run --rm eclipse-temurin:17-jre cat /etc/os-release`, ensure it's Debian based, and use Debian syntax
