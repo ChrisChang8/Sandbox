@@ -130,9 +130,52 @@ its own container IP rather than `localhost`.
 11. Add datasource config — append to ~/main/java/resources/application.properties
 12. Create init.sql — new file at repo root (init.sql)
 13. Verify:
+    - View all registry: `docker ps -a --filter "name=registry"`
+    - Start registry: `docker run -d -p 5000:5000 --restart=always --name registry registry:2`
     - Check containers: `docker ps -a`
     - Check what's available: `docker-compose version`
     - Build: `docker-compose up -d --build`
     - Check: curl http://localhost:8081/people
 
+14. Fix Jenkins "Build & Test" failing on a live Postgres dependency:
+    - Problem: `HelloControllerTests` uses `@SpringBootTest`, which boots the
+      full app context including the JPA datasource. Locally a Postgres
+      container is running, so it passes; on the Jenkins agent there's no
+      database, so `ApplicationContext` fails to load and `mvn verify` fails.
+    - Add H2 as a test-only dependency in `pom.xml`:
+        ```
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        ```
+    - Create `src/test/resources/application.properties` to point tests at an
+      in-memory H2 database instead of Postgres (Maven puts `test-classes`
+      ahead of `classes` on the classpath, so this overrides the main config
+      only during tests):
+        ```
+        spring.datasource.url=jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+        spring.datasource.driver-class-name=org.h2.Driver
+        spring.datasource.username=sa
+        spring.datasource.password=
+        spring.jpa.hibernate.ddl-auto=create-drop
+        ```
+    - Verify locally without a running Postgres container: `mvn -B clean verify`
+    - **Why H2 for tests?** It's fast (starts in-process, no container to wait
+      on), self-contained (no dependency on Postgres being up, so CI can't fail
+      just because a DB wasn't running), and disposable (fresh schema every
+      run via `create-drop`, no leftover data between test runs). The
+      trade-off: H2 isn't byte-for-byte identical to Postgres, so it's meant
+      for fast unit/context tests only — production and `docker-compose`
+      still run against real Postgres, unchanged.
+
+15. Fix Jenkins "Docker Push" connection refused (`dial tcp 127.0.0.1:5000`):
+    - Problem: the local `registry:2` container wasn't running/publishing
+      port 5000 on the host Jenkins' Docker daemon talks to.
+    - Check if it exists: `docker ps -a --filter "name=registry"`
+    - Start it if missing: `docker run -d -p 5000:5000 --restart=always --name registry registry:2`
+    - Or restart it if stopped: `docker start registry`
+    - Re-run the Jenkins pipeline — `docker push localhost:5000/demo-app:<tag>`
+      should now succeed.
 
