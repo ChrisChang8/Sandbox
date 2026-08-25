@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS person (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+INSERT INTO person (id, name) VALUES (1, 'Ada Lovelace')
+ON CONFLICT (id) DO NOTHING;

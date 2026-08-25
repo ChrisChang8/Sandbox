@@ -74,12 +74,14 @@ its own container IP rather than `localhost`.
 
 
 ## Multi-Stage Build
+
 1. Build the image and tag it baseline: `docker build -t demo-app:baseline`
 2. List hte image and note its size (8/25 - 317MB): `docker images demo-app`
 3. Read Dockerfile `COPY --from=build /app/target/demo-app-*.jar app.jar`, this tells Docker "reach into the build stage's filesystem and copy this one file out." Everything else from stage 1 (Maven cache, JDK, .java sources, pom.xml) is discarded — it never becomes part of the final image layers.
 4. Verify discarding: `docker history demo-app:baseline` You should see layers corresponding only to the eclipse-temurin:17-jre base + the COPY app.jar + EXPOSE/ENTRYPOINT metadata — nothing about mvn clean package.
 5. Confirm OS Base image: `docker run --rm eclipse-temurin:17-jre cat /etc/os-release`, ensure it's Debian based, and use Debian syntax
 6. Udpate Docker Runtime stage: 
+    * Ensure changes are applied: `nano ~/sandbox/Dockerfile`
     ```
     FROM eclipse-temurin:17-jre
     RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
@@ -105,3 +107,26 @@ its own container IP rather than `localhost`.
         - More detail comparison: 
             - `docker inspect -f "{{.Size}}" demo-app:baseline`
             - `docker inspect -f "{{.Size}}" demo-app:secure`
+    - Sanity Check: `docker run --rm -p 8080:8080 demo-app:secure`
+        - If Port Occupied, run
+            - list all running containers: `docker ps`
+            - stop containers: `docker stop a1f0bdfacf29`
+            - run server: `docker run --rm -p 8081:8080 demo-app:secure`, jenkins default 8080, also the -rm deletes afterwards
+
+8. Add sql dependy pom.xml:
+    ```
+    <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    ```
+9. Created Person Entity, locaated in src/main/java/com/example/demo/Person.java
+10. Create the controller — new file (PersonController.java)
+11. Add datasource config — append to ~/main/java/resources/application.properties
+12. Create init.sql — new file at repo root (init.sql):
+

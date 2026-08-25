@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    container_name: demo-db
+    environment:
+      POSTGRES_DB: demo
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - demo-net
+
+  app:
+    build: .
+    container_name: demo-app
+    ports:
+      - "8081:8080"
+    environment:
+      DB_HOST: db
+      DB_NAME: demo
+      DB_USER: demo
+      DB_PASSWORD: demo
+    depends_on:
+      - db
+    networks:
+      - demo-net
+
+networks:
+  demo-net:
