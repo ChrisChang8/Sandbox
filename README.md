@@ -71,3 +71,37 @@ its own container IP rather than `localhost`.
    manually in step 2.
 5. **Wire it up** — a Jenkins Pipeline job runs the `Jenkinsfile` against this
    repo, end to end.
+
+
+## Multi-Stage Build
+1. Build the image and tag it baseline: `docker build -t demo-app:baseline`
+2. List hte image and note its size (8/25 - 317MB): `docker images demo-app`
+3. Read Dockerfile `COPY --from=build /app/target/demo-app-*.jar app.jar`, this tells Docker "reach into the build stage's filesystem and copy this one file out." Everything else from stage 1 (Maven cache, JDK, .java sources, pom.xml) is discarded — it never becomes part of the final image layers.
+4. Verify discarding: `docker history demo-app:baseline` You should see layers corresponding only to the eclipse-temurin:17-jre base + the COPY app.jar + EXPOSE/ENTRYPOINT metadata — nothing about mvn clean package.
+5. Confirm OS Base image: `docker run --rm eclipse-temurin:17-jre cat /etc/os-release`, ensure it's Debian based, and use Debian syntax
+6. Udpate Docker Runtime stage: 
+    ```
+    FROM eclipse-temurin:17-jre
+    RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+    WORKDIR /app
+    COPY --from=build /app/target/demo-app-*.jar app.jar
+    RUN chown appuser:appgroup app.jar
+    USER appuser
+    EXPOSE 8080
+    ENTRYPOINT ["java", "-jar", "app.jar"]
+    ```
+    Why each line is there:
+
+    - `addgroup --system / adduser --system` — creates a system account with no login      shell/home dir/password, standard for Ubuntu/Debian.
+    - `chown appuser:appgroup app.jar` — the jar is copied in as root; without this, appuser can't read it.
+    - `USER appuser` comes after COPY/chown (which need root) so only the running java process drops privileges.
+7. Rebuild and Verify the non-root user works 
+    - Rebuild: `docker build -t demo-app:secure .`
+        - `docker build --no-cache -t demo-app:secure .`
+        - `docker build --no-cache --pull -t demo-app:secure .`
+    - Verify: `docker run --rm demo-app:secure whoami`
+        -  `docker run --rm --entrypoint whoami demo-app:secure`
+    - Compare both tags side by side: `docker images demo-app`
+        - More detail comparison: 
+            - `docker inspect -f "{{.Size}}" demo-app:baseline`
+            - `docker inspect -f "{{.Size}}" demo-app:secure`
